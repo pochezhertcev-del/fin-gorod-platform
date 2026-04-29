@@ -1,0 +1,51 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fingorod-postgres
+    environment:
+      POSTGRES_DB: fingorod
+      POSTGRES_USER: fingorod
+      POSTGRES_PASSWORD: fingorod_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fingorod"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: fingorod-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://fingorod:fingorod_dev_password@postgres:5432/fingorod
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production_too}
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: apps/client/Dockerfile
+    container_name: fingorod-client
+    depends_on:
+      - server
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

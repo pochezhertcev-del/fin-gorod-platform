@@ -1,0 +1,25 @@
+{
+  "name": "fin-gorod-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Educational platform for financial literacy with gamification",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm --workspace apps/server run start:dev",
+    "dev:client": "npm --workspace apps/client run dev",
+    "build": "npm --workspaces run build",
+    "test": "npm --workspace apps/server run test",
+    "test:cov": "npm --workspace apps/server run test:cov",
+    "lint": "npm --workspaces run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

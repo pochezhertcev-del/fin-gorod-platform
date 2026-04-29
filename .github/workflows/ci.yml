@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node: ['20']
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fingorod
+          POSTGRES_PASSWORD: fingorod_test
+          POSTGRES_DB: fingorod_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run server unit tests
+        working-directory: apps/server
+        env:
+          DATABASE_URL: postgresql://fingorod:fingorod_test@localhost:5432/fingorod_test
+          JWT_SECRET: test_secret_for_ci_only_min_32_characters_long
+          JWT_REFRESH_SECRET: test_refresh_secret_for_ci_only_min_32_chars
+          NODE_ENV: test
+        run: npm test
+
+      - name: Generate coverage report
+        working-directory: apps/server
+        env:
+          DATABASE_URL: postgresql://fingorod:fingorod_test@localhost:5432/fingorod_test
+          JWT_SECRET: test_secret_for_ci_only_min_32_characters_long
+          JWT_REFRESH_SECRET: test_refresh_secret_for_ci_only_min_32_chars
+        run: npm run test:cov
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.node }}
+          path: apps/server/coverage/
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm install
+
+      - name: Build server
+        working-directory: apps/server
+        run: npm run build
+
+      - name: Build client
+        working-directory: apps/client
+        run: npm run build
